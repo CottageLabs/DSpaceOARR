@@ -1,10 +1,16 @@
 package com.cottagelabs.oarr;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.PosixParser;
 import org.dspace.app.util.Util;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -13,9 +19,55 @@ import org.dspace.core.ConfigurationManager;
 public class RegistryFile
 {
     public static void main(String[] args)
+            throws Exception
     {
-        String dspaceLive = "/srv/duo/duo-upgrade";
-        String webapps = "/srv/duo/duo-upgrade/webapps"; // note this is not the tomcat directory, for the purposes of testing only
+        CommandLineParser parser = new PosixParser();
+        Options options = new Options();
+
+        options.addOption( "d", "dspace", true, "path to live dspace instance");
+        options.addOption( "w", "webapps", true, "path to live webapps directory (e.g. in tomcat)");
+        options.addOption("o", "output", true, "file to output to");
+
+        CommandLine line = parser.parse(options, args);
+
+        String dspaceLive = null;
+        String webapps = null;
+        String output = null;
+
+        if (line.hasOption('d'))
+        {
+            dspaceLive = line.getOptionValue('d');
+        }
+
+        if (line.hasOption('w'))
+        {
+            webapps = line.getOptionValue('w');
+        }
+
+        if (line.hasOption('o'))
+        {
+            output = line.getOptionValue('o');
+        }
+
+        if (output == null || dspaceLive == null || webapps == null)
+        {
+            HelpFormatter formatter = new HelpFormatter();
+            formatter.printHelp("RegistryFile", options);
+            System.exit(0);
+        }
+
+        // now we have all the options, get the registry file contents as a json object
+        JSONObject obj = RegistryFile.getRegistryFile(dspaceLive, webapps);
+
+        // write the data out to file
+        FileWriter fw = new FileWriter(new File(output));
+        obj.writeJSONString(fw);
+        fw.flush();
+        fw.close();
+    }
+
+    public static JSONObject getRegistryFile(String dspaceLive, String webapps)
+    {
         String dspaceCfg = dspaceLive + File.separator + "config" + File.separator + "dspace.cfg";
 
         ConfigurationManager.loadConfig(dspaceCfg);
@@ -115,7 +167,42 @@ public class RegistryFile
             // FIXME: would be good to get the metadata formats, but that turns out to be quite hard
         }
 
-        System.out.print(obj);
+        // REST
+        boolean isRest = RegistryFile.isWebapp(webapps, "rest");
+        if (isOai)
+        {
+            JSONObject rest = new JSONObject();
+            rest.put("api_type", "dspace-rest");
+            rest.put("base_url", baseUrl + "/rest");
+            rest.put("version", Util.getSourceVersion());
+            apis.add(rest);
+        }
+
+        // SWORDv1
+        boolean isSword1 = RegistryFile.isWebapp(webapps, "sword");
+        if (isSword1)
+        {
+            JSONObject sword = new JSONObject();
+            sword.put("api_type", "sword");
+            sword.put("base_url", baseUrl + "/sword/servicedocument");
+            sword.put("version", "1.3");
+            apis.add(sword);
+            // FIXME: would be good to get the accepts/packaging options
+        }
+
+        // SWORDv2
+        boolean isSword2 = RegistryFile.isWebapp(webapps, "swordv2");
+        if (isSword2)
+        {
+            JSONObject sword = new JSONObject();
+            sword.put("api_type", "sword");
+            sword.put("base_url", baseUrl + "/swordv2/servicedocument");
+            sword.put("version", "2.0");
+            apis.add(sword);
+            // FIXME: would be good to get the accepts/packaging options
+        }
+
+        return obj;
     }
 
     private static boolean isWebapp(String path, String webapp)
