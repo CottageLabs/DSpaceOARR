@@ -1,5 +1,39 @@
 # DSpace OARR Registry File Generator
 
+## Build
+
+Check the code out, and then locally run
+
+    mvn clean package
+    mvn dependency:copy-dependencies
+
+This will give you the compiled version of this library in
+
+    target/dspace-oarr-1.0-SNAPSHOT.jar
+
+And all of the dependencies of this library in
+
+    target/dependency
+
+NOTE: there will be a lot of dependencies, because this code depends on DSpace, which has a lot of dependencies of its own
+
+## Install
+
+To install and be able to run this in the context of DSpace, just copy the following files into [dspace-live]/lib:
+
+    target/dspace-oarr-1.0-SNAPSHOT.jar
+    target/dependency/json-simple-1.1.jar
+
+## Usage
+
+For convenience you can use the DSpace class runner to run this code, if you have installed it as above.
+
+    [dspace-live]/bin/dspace dsrun com.cottagelabs.oarr.RegistryFile -d [path to live DSpace] -w [path to tomcat webapps] -o [path to output file to create]
+
+This will analyse your DSpace installation, and write the resulting RegistryFile (see below) into the output file specified.
+
+## The Registry File
+
 The Registry File we need to generate is of the following format:
 
 ```python
